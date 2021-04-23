@@ -330,6 +330,7 @@ MonoBehaviour:
     m_Bits: 768
   _feet: {fileID: 5897685786590237203}
   _groundDetectionDistance: 0.2
+  _pushForce: 5
   _maxAngle: 45
   _wallAngle: 89
   _bounceSpeed: 0.5

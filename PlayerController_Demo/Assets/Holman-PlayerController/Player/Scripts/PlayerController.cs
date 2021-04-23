@@ -19,6 +19,14 @@ namespace HolmanPlayerController
         [SerializeField] private float _groundDetectionDistance = 0.2f;
         public float GroundDetectionDistance => _groundDetectionDistance;
 
+        [SerializeField] private float _pushForce = 1.0f;
+        public float PushForce => _pushForce;
+        // Platform code is heavily inspired by SharpCoder
+        // Link: https://sharpcoderblog.com/blog/unity-3d-character-controller-moving-platform-support
+        private Transform SelectedPlatform;
+        private Vector3 _localPlayerPlatformPoint;
+        private Vector3 _globalPlayerPlatformPoint;
+
         //  Environment interaction
         [SerializeField] private float _maxAngle = 45f;
         public float MaxAngle => _maxAngle;
@@ -96,8 +104,37 @@ namespace HolmanPlayerController
                 _physicsVelocity.y = -0.1f;
             }
 
+            RaycastHit feetCast = FeetCast();
+            if(feetCast.collider == null)
+            {
+                SelectedPlatform = null;
+            } else if(feetCast.collider.transform != SelectedPlatform)
+            {
+                SelectedPlatform = null;
+            }
+
+            if(SelectedPlatform != null)
+            {
+                Vector3 newGlobalPoint = SelectedPlatform.TransformPoint(_localPlayerPlatformPoint);
+                Vector3 moveDirection = newGlobalPoint - _globalPlayerPlatformPoint;
+                if (moveDirection.magnitude > 0.001f)
+                {
+                    CharacterController.Move(moveDirection);
+                }
+                if(SelectedPlatform)
+                {
+                    UpdateMovingPlatform();
+                }
+            }
+
             State.Move(InputHandler.InputDir);
             State.PhysicsUpdate();
+        }
+
+        private void UpdateMovingPlatform()
+        {
+            _globalPlayerPlatformPoint = transform.position;
+            _localPlayerPlatformPoint = SelectedPlatform.InverseTransformPoint(transform.position);
         }
 
         /// <summary>
@@ -278,6 +315,27 @@ namespace HolmanPlayerController
 
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
+            if(hit.transform.TryGetComponent(out Rigidbody hitBody))
+            {
+                if (hit.moveDirection.y > -0.3f)
+                {
+                    Vector3 pushDir = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
+                    hitBody.velocity = (pushDir * PushForce) / hitBody.mass;
+                }
+            }
+
+            if(hit.moveDirection.y < -0.9f && hit.normal.y > 0.41f)
+            {
+                if (SelectedPlatform != hit.collider.transform)
+                {
+                    SelectedPlatform = hit.collider.transform;
+                    UpdateMovingPlatform();
+                }
+            } else
+            {
+                SelectedPlatform = null;
+            }
+
             CollisionPoint = hit.point;
 
             // Store the result of a raycast down from the feet
